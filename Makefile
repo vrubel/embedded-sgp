@@ -17,6 +17,8 @@ sgp-common/git_version.c: FORCE
 		{print "const char * SGP_DRV_VERSION_STR = \"" $$0"\";"} \
 		END {}' > $@ || echo "Can't update version, not a git repository"
 
+svm30: FORCE
+	cd $@ && $(MAKE) $(MFLAGS)
 
 $(release_drivers): sgp-common/git_version.c
 	export rel=$@ && \
@@ -42,4 +44,5 @@ $(clean_drivers):
 	cd $${driver} && $(MAKE) clean $(MFLAGS) && cd -
 
 clean: $(clean_drivers)
+	cd svm30 && $(MAKE) clean $(MFLAGS) && cd - && \
 	rm -rf release
