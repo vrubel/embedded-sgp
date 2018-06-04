@@ -9,6 +9,8 @@ all: $(drivers)
 $(drivers): FORCE
 	cd $@ && $(MAKE) $(MFLAGS)
 
+svm30: FORCE
+	cd $@ && $(MAKE) $(MFLAGS)
 
 $(release_drivers):
 	export rel=$@ && \
@@ -35,4 +37,5 @@ $(clean_drivers):
 	cd $${driver} && $(MAKE) clean $(MFLAGS) && cd -
 
 clean: $(clean_drivers)
+	cd svm30 && $(MAKE) clean $(MFLAGS) && cd - && \
 	rm -rf release
