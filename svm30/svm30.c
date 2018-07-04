@@ -29,10 +29,9 @@
  */
 
 #include "sensirion_common.h"
-#include "sgp30.h"
+#include "sgpc3.h"
 #include "sht.h"
-
-#define SVM_DRV_VERSION_STR             "3.0.0"
+#include "git_version.h"
 
 #define T_LO (-20000)
 #define T_HI 70000
@@ -40,11 +39,6 @@ static const u32 AH_LUT_100RH[] = {
     1078, 2364, 4849, 9383, 17243, 30264, 50983, 82785, 130048, 198277
 };
 static const u32 T_STEP = (T_HI - T_LO) / (ARRAY_SIZE(AH_LUT_100RH) - 1);
-
-static void svm_compensate_rht(s32 *temperature, s32 *humidity) {
-    *temperature = ((*temperature * 8225) >> 13) - 500;
-    *humidity = (*humidity * 8397) >> 13;
-}
 
 /**
  * Convert relative humidity [%RH*1000] and temperature [mC] to
@@ -81,20 +75,22 @@ static u32 sensirion_calc_absolute_humidity(const s32 *temperature,
  */
 const char *svm_get_driver_version()
 {
-    return SVM_DRV_VERSION_STR;
+    return SGP_DRV_VERSION_STR;
 }
 
 /**
- * svm_measure_iaq_blocking_read() - Measure IAQ concentrations tVOC, CO2-Eq.
+ * svm_measure_iaq_blocking_read() - Measure IAQ concentration tVOC
  *
- * @tvoc_ppb:   The tVOC ppb value will be written to this location
- * @co2_eq_ppm: The CO2-Equivalent ppm value will be written to this location
+ * The output values are written to the memory locations passed as parameters:
+ * @tvoc_ppb:   The tVOC value in [ppb]
+ * @temperature: Temperature in [degree Celsius] multiplied by 1000
+ * @humidity:   Relative humidity in [%RH (0..100)] multiplied by 1000
  *
  * The profile is executed synchronously.
  *
  * Return:      STATUS_OK on success, else STATUS_FAIL
  */
-s16 svm_measure_iaq_blocking_read(u16 *tvoc_ppb, u16 *co2_eq_ppm,
+s16 svm_measure_iaq_blocking_read(u16 *tvoc_ppb,
                                   s32 *temperature, s32 *humidity) {
     u32 absolute_humidity;
     u16 sgp_feature_set;
@@ -106,14 +102,12 @@ s16 svm_measure_iaq_blocking_read(u16 *tvoc_ppb, u16 *co2_eq_ppm,
         return err;
 
     sgp_get_feature_set_version(&sgp_feature_set, &sgp_product_type);
-    if (sgp_feature_set >= 0x20) {
+    if (sgp_feature_set >= 0x06) {
         absolute_humidity = sensirion_calc_absolute_humidity(temperature, humidity);
         sgp_set_absolute_humidity(absolute_humidity);
     }
 
-    svm_compensate_rht(temperature, humidity);
-
-    err = sgp_measure_iaq_blocking_read(tvoc_ppb, co2_eq_ppm);
+    err = sgp_measure_iaq_blocking_read(tvoc_ppb);
     if (err != STATUS_OK)
         return err;
 
@@ -121,9 +115,9 @@ s16 svm_measure_iaq_blocking_read(u16 *tvoc_ppb, u16 *co2_eq_ppm,
 }
 
 /**
- * svm_probe() - check if an SVM30 module is available and initialize it
+ * svm_probe() - check if an SGP and an SHT are available and initializes them
  *
- * This call aleady initializes the IAQ baselines (sgp_iaq_init())
+ * This call aleady initializes the IAQ baseline (sgp_iaq_init())
  *
  * Return:  STATUS_OK on success.
  */
